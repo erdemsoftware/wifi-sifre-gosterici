@@ -1,6 +1,6 @@
 # 📶 WiFi Şifre ve Ağ Yöneticisi (Root)
 
-Android cihazınızda kayıtlı tüm Wi-Fi ağlarını ve şifrelerini görüntüleyen, arayan, kopyalayan ve gereksiz/şifresiz ağları temizlemenizi sağlayan gelişmiş ve ultra hafif Android uygulaması.
+Android cihazınızda kayıtlı tüm Wi-Fi ağlarını ve şifrelerini görüntüleyen, QR kod ile paylaşan, arayan, kopyalayan ve gereksiz/şifresiz ağları tek tıkla temizlemenizi sağlayan gelişmiş ve ultra hafif Android uygulaması.
 
 ---
 
@@ -14,12 +14,13 @@ Android cihazınızda kayıtlı tüm Wi-Fi ağlarını ve şifrelerini görünt�
 
 ## ✨ Özellikler
 
-- **Ultra Hafif:** Yalnızca **22 KB** boyutundadır.
-- **🔍 Canlı Arama:** Wi-Fi adı veya şifreye göre anında arama ve filtreleme.
+- **Ultra Hafif:** Yalnızca **35 KB** boyutundadır.
+- **📷 QR Kod ile Wi-Fi Paylaşımı:** Bir Wi-Fi ağına dokunduğunuzda anında o ağa özel standart Wi-Fi QR kodu üretir. Başka bir telefon kamerayla okutarak şifre girmeden bağlanabilir.
+- **🧹 Şifresizleri Temizle:** Oteller, kafeler veya halka açık şifresiz ağların tümünü tek dokunuşla bulup topluca siler.
 - **☑️ Çoklu Seçim:** Ağları tek tek veya "Tümünü Seç" kutucuğuyla seçebilme.
-- **🗑️ Seçilenleri Sil:** Çoklu seçtiğiniz ağları onay penceresiyle sistemden tamamen silme.
-- **🧹 Şifresizleri Temizle:** Oteller, kafeler veya halka açık şifresiz ağların tümünü tek dokunuşla bulup topluca silme.
-- **⚡ Hızlı Kopyalama:** Her karttaki "Kopyala" butonuyla veya karta dokunarak şifreyi panoya kopyalama.
+- **🗑️ Seçilenleri Sil:** Çoklu seçtiğiniz ağları onay penceresiyle sistemden tamamen silme (ve anında listeden temizleme, manuel yenilemeye gerek yoktur).
+- **🔍 Canlı Arama:** Wi-Fi adı veya şifreye göre anında arama ve filtreleme.
+- **⚡ Hızlı Kopyalama:** Her karttaki "Kopyala" butonuyla şifreyi panoya kopyalama.
 - **📋 Hepsini Kopyala:** Tüm ağları ve şifreleri düzenli liste olarak panoya aktarma.
 - **📁 Dışa Aktar:** Tüm şifreleri `/sdcard/Download/wifi_sifreleri.txt` olarak kaydetme.
 - **Geniş Uyumluluk:** Android 9, 10, 11, 12, 13 ve 14 (MIUI, HyperOS, OneUI, AOSP) tam destek.

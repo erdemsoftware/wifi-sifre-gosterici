@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:padding="20dp"
+    android:background="#FFFFFF">
+
+    <TextView
+        android:id="@+id/tvQrSsid"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="WiFi Adı"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="#1565C0"
+        android:layout_marginBottom="6dp" />
+
+    <TextView
+        android:id="@+id/tvQrPass"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Şifre: ******"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:textColor="#C62828"
+        android:layout_marginBottom="16dp" />
+
+    <ImageView
+        android:id="@+id/ivQrCode"
+        android:layout_width="260dp"
+        android:layout_height="260dp"
+        android:scaleType="fitCenter"
+        android:background="#FFFFFF"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="📷 Herhangi bir telefonun kamerasıyla veya Wi-Fi menüsünden bu QR kodu okutarak şifre yazmadan anında bağlanabilirsiniz."
+        android:textSize="12sp"
+        android:textColor="#666666"
+        android:gravity="center"
+        android:layout_marginBottom="16dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btnQrCopy"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="Şifreyi Kopyala"
+            android:textSize="13sp"
+            android:backgroundTint="#0288D1"
+            android:textColor="#FFFFFF" />
+
+        <Space
+            android:layout_width="8dp"
+            android:layout_height="wrap_content" />
+
+        <Button
+            android:id="@+id/btnQrClose"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="Kapat"
+            android:textSize="13sp"
+            android:backgroundTint="#757575"
+            android:textColor="#FFFFFF" />
+    </LinearLayout>
+</LinearLayout>

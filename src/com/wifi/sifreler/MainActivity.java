@@ -7,6 +7,7 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
@@ -19,6 +20,7 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -28,10 +30,12 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -141,7 +145,7 @@ public class MainActivity extends Activity {
                     Toast.makeText(MainActivity.this, "Lütfen silmek istediğiniz ağları seçin.", Toast.LENGTH_SHORT).show();
                     return;
                 }
-                confirmAndDelete(toDelete, toDelete.size() + " adet seçili Wi-Fi ağını silmek istediğinize emin misiniz?");
+                confirmAndDelete(toDelete, toDelete.size() + " adet seçili Wi-Fi ağını silmek istediğinize emin misiniz?", false);
             }
         });
 
@@ -159,7 +163,7 @@ public class MainActivity extends Activity {
                     Toast.makeText(MainActivity.this, "Kayıtlı şifresiz (açık) ağ bulunamadı.", Toast.LENGTH_SHORT).show();
                     return;
                 }
-                confirmAndDelete(toDelete, "Toplam " + toDelete.size() + " adet şifresiz/açık ağ bulundu. Bu ağların tümü sistemden silinsin mi?");
+                confirmAndDelete(toDelete, "Toplam " + toDelete.size() + " adet şifresiz/açık ağ bulundu. Bu ağların tümü sistemden silinsin mi?", true);
             }
         });
 
@@ -221,7 +225,7 @@ public class MainActivity extends Activity {
                     }
                 }
 
-                // 2. cmd wifi list-networks ile Network ID haritasını al (Silme işlemleri için)
+                // 2. cmd wifi list-networks ile Network ID haritasını al
                 Map<String, Integer> idMap = new HashMap<>();
                 String listCmdOut = executeSuCommand("cmd wifi list-networks 2>/dev/null");
                 parseCmdWifiList(listCmdOut, idMap);
@@ -257,18 +261,37 @@ public class MainActivity extends Activity {
     private void parseCmdWifiList(String output, Map<String, Integer> idMap) {
         if (output == null || output.trim().isEmpty() || output.startsWith("ERROR:")) return;
         String[] lines = output.split("\n");
-        Pattern pat = Pattern.compile("^\\s*(\\d+)\\s+[\"']?(.*?)[\"']?\\s+", Pattern.MULTILINE);
         for (String line : lines) {
-            Matcher m = pat.matcher(line);
-            if (m.find()) {
-                try {
-                    int id = Integer.parseInt(m.group(1));
-                    String ssid = cleanString(m.group(2));
-                    if (!ssid.isEmpty()) {
-                        idMap.put(ssid, id);
+            line = line.trim();
+            if (line.isEmpty() || line.startsWith("Network")) continue;
+            try {
+                int firstSpace = line.indexOf(' ');
+                int firstTab = line.indexOf('\t');
+                int splitIdx = (firstSpace != -1 && firstTab != -1) ? Math.min(firstSpace, firstTab) : Math.max(firstSpace, firstTab);
+                if (splitIdx == -1) continue;
+
+                String idStr = line.substring(0, splitIdx).trim();
+                int id = Integer.parseInt(idStr);
+                String rest = line.substring(splitIdx).trim();
+
+                String ssid;
+                int q1 = rest.indexOf('"');
+                int q2 = rest.lastIndexOf('"');
+                if (q1 != -1 && q2 > q1) {
+                    ssid = rest.substring(q1 + 1, q2);
+                } else {
+                    int lastSpace = rest.lastIndexOf(' ');
+                    if (lastSpace != -1) {
+                        ssid = rest.substring(0, lastSpace).trim();
+                    } else {
+                        ssid = rest;
                     }
-                } catch (Exception ignored) {}
-            }
+                }
+                ssid = cleanString(ssid);
+                if (!ssid.isEmpty()) {
+                    idMap.put(ssid, id);
+                }
+            } catch (Exception ignored) {}
         }
     }
 
@@ -372,7 +395,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void confirmAndDelete(final List<WifiItem> itemsToDelete, String message) {
+    private void confirmAndDelete(final List<WifiItem> itemsToDelete, String message, final boolean isClearAllOpen) {
         new AlertDialog.Builder(this)
             .setTitle("Ağları Sil")
             .setMessage(message)
@@ -380,38 +403,162 @@ public class MainActivity extends Activity {
             .setPositiveButton("Evet, Sil", new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {
-                    executeDelete(itemsToDelete);
+                    executeDelete(itemsToDelete, isClearAllOpen);
                 }
             })
             .setNegativeButton("İptal", null)
             .show();
     }
 
-    private void executeDelete(final List<WifiItem> itemsToDelete) {
-        tvStatus.setText("Ağlar siliniyor...");
+    private void executeDelete(final List<WifiItem> itemsToDelete, final boolean isClearAllOpen) {
+        tvStatus.setText("Ağlar siliniyor, lütfen bekleyin...");
+        
+        // 1. ANINDA ARAYÜZDEN KALDIR (Kullanıcı yenilemek zorunda kalmasın)
+        allWifiList.removeAll(itemsToDelete);
+        filteredList.removeAll(itemsToDelete);
+        adapter.notifyDataSetChanged();
+        tvCount.setText(filteredList.size() + " / " + allWifiList.size() + " Ağ");
+
         new Thread(new Runnable() {
             @Override
             public void run() {
-                StringBuilder deleteCommands = new StringBuilder();
+                // Güncel network ID haritasını al
+                Map<String, Integer> currentIdMap = new HashMap<>();
+                String listOut = executeSuCommand("cmd wifi list-networks 2>/dev/null");
+                parseCmdWifiList(listOut, currentIdMap);
+
+                Set<Integer> idsToDelete = new HashSet<>();
+
                 for (WifiItem item : itemsToDelete) {
                     if (item.networkId >= 0) {
-                        deleteCommands.append("cmd wifi forget-network ").append(item.networkId).append(" 2>/dev/null; ");
-                        deleteCommands.append("wpa_cli remove_network ").append(item.networkId).append(" 2>/dev/null; ");
+                        idsToDelete.add(item.networkId);
+                    }
+                    if (currentIdMap.containsKey(item.ssid)) {
+                        idsToDelete.add(currentIdMap.get(item.ssid));
                     }
                 }
-                deleteCommands.append("wpa_cli save_config 2>/dev/null; ");
 
-                executeSuCommand(deleteCommands.toString());
+                StringBuilder deleteCmds = new StringBuilder();
+
+                // ID'si bilinenlerin hepsini sil
+                for (int id : idsToDelete) {
+                    deleteCmds.append("cmd wifi forget-network ").append(id).append(" 2>/dev/null; ");
+                    deleteCmds.append("wpa_cli remove_network ").append(id).append(" 2>/dev/null; ");
+                }
+
+                // Eğer şifresizleri temizleme ise, açık olan tüm ağları topluca silen master komut
+                if (isClearAllOpen) {
+                    deleteCmds.append("cmd wifi list-networks 2>/dev/null | grep -iE 'open|none' | awk '{print $1}' | while read -r id; do cmd wifi forget-network \"$id\" 2>/dev/null; wpa_cli remove_network \"$id\" 2>/dev/null; done; ");
+                } else {
+                    // Seçilenler için SSID bazlı yedek silme
+                    for (WifiItem item : itemsToDelete) {
+                        String clean = item.ssid.replace("'", "'\\''");
+                        deleteCmds.append("cmd wifi list-networks 2>/dev/null | grep -F '").append(clean).append("' | awk '{print $1}' | while read -r id; do cmd wifi forget-network \"$id\" 2>/dev/null; done; ");
+                    }
+                }
+
+                deleteCmds.append("wpa_cli save_config 2>/dev/null; ");
+
+                executeSuCommand(deleteCmds.toString());
 
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        Toast.makeText(MainActivity.this, itemsToDelete.size() + " adet ağ silindi! 🗑️", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(MainActivity.this, itemsToDelete.size() + " adet ağ başarıyla silindi! 🗑️", Toast.LENGTH_SHORT).show();
+                        // Arka planda sistemi tekrar senkronize et
                         loadWifiPasswords();
                     }
                 });
             }
         }).start();
+    }
+
+    // QR Kod Paylaşım Penceresi
+    private void showQrCodeDialog(final WifiItem item) {
+        View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_qrcode, null);
+        TextView tvQrSsid = (TextView) dialogView.findViewById(R.id.tvQrSsid);
+        TextView tvQrPass = (TextView) dialogView.findViewById(R.id.tvQrPass);
+        ImageView ivQrCode = (ImageView) dialogView.findViewById(R.id.ivQrCode);
+        Button btnQrCopy = (Button) dialogView.findViewById(R.id.btnQrCopy);
+        Button btnQrClose = (Button) dialogView.findViewById(R.id.btnQrClose);
+
+        tvQrSsid.setText(item.ssid);
+        if (item.isOpen) {
+            tvQrPass.setText("Şifresiz (Açık Ağ)");
+            tvQrPass.setTextColor(0xFF2E7D32);
+        } else {
+            tvQrPass.setText("Şifre: " + item.password);
+            tvQrPass.setTextColor(0xFFC62828);
+        }
+
+        // Wi-Fi QR Kod Metni Standardı: WIFI:S:SSID;T:WPA;P:PASSWORD;;
+        String qrPayload;
+        if (item.isOpen) {
+            qrPayload = "WIFI:S:" + escapeQr(item.ssid) + ";T:nopass;;";
+        } else {
+            qrPayload = "WIFI:S:" + escapeQr(item.ssid) + ";T:WPA;P:" + escapeQr(item.password) + ";;";
+        }
+
+        try {
+            QrCode qr = QrCode.encodeText(qrPayload, QrCode.Ecc.MEDIUM);
+            Bitmap qrBitmap = renderQrBitmap(qr, 8, 4);
+            ivQrCode.setImageBitmap(qrBitmap);
+        } catch (Exception e) {
+            Toast.makeText(this, "QR Kod üretilemedi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+
+        final AlertDialog dialog = new AlertDialog.Builder(this)
+            .setView(dialogView)
+            .create();
+
+        btnQrCopy.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                copyToClipboard(item.password, item.ssid);
+            }
+        });
+
+        btnQrClose.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                dialog.dismiss();
+            }
+        });
+
+        dialog.show();
+    }
+
+    private static String escapeQr(String text) {
+        if (text == null) return "";
+        return text.replace("\\", "\\\\")
+                   .replace(";", "\\;")
+                   .replace(",", "\\,")
+                   .replace(":", "\\:")
+                   .replace("\"", "\\\"");
+    }
+
+    private static Bitmap renderQrBitmap(QrCode qr, int scale, int border) {
+        int size = (qr.size + border * 2) * scale;
+        Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < size; x++) {
+                bitmap.setPixel(x, y, 0xFFFFFFFF);
+            }
+        }
+        for (int y = 0; y < qr.size; y++) {
+            for (int x = 0; x < qr.size; x++) {
+                if (qr.getModule(x, y)) {
+                    int startX = (x + border) * scale;
+                    int startY = (y + border) * scale;
+                    for (int dy = 0; dy < scale; dy++) {
+                        for (int dx = 0; dx < scale; dx++) {
+                            bitmap.setPixel(startX + dx, startY + dy, 0xFF000000);
+                        }
+                    }
+                }
+            }
+        }
+        return bitmap;
     }
 
     private String cleanString(String str) {
@@ -532,7 +679,6 @@ public class MainActivity extends Activity {
             tvSsid.setText(item.ssid);
             tvPass.setText(item.password);
 
-            // Şifresiz ağ ise yeşil yap
             if (item.isOpen) {
                 tvPass.setTextColor(0xFF2E7D32);
             } else {
@@ -560,14 +706,15 @@ public class MainActivity extends Activity {
                 public void onClick(View v) {
                     List<WifiItem> singleList = new ArrayList<>();
                     singleList.add(item);
-                    confirmAndDelete(singleList, "'" + item.ssid + "' ağını cihazdan silmek istediğinize emin misiniz?");
+                    confirmAndDelete(singleList, "'" + item.ssid + "' ağını cihazdan silmek istediğinize emin misiniz?", false);
                 }
             });
 
+            // Kartın üzerine tıklandığında QR KOD aç
             cv.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    copyToClipboard(item.password, item.ssid);
+                    showQrCodeDialog(item);
                 }
             });
 
