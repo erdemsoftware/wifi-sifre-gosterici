@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -13,12 +15,12 @@ import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.BufferedReader;
-import java.io.DataOutputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -39,10 +41,11 @@ public class MainActivity extends Activity {
         }
     }
 
-    private TextView tvTitle, tvStatus, tvCount;
+    private TextView tvStatus, tvCount;
     private EditText etSearch;
     private ListView listView;
     private Button btnRefresh, btnCopyAll, btnExport;
+    private LinearLayout layoutGithub;
 
     private List<WifiItem> allWifiList = new ArrayList<>();
     private List<WifiItem> filteredList = new ArrayList<>();
@@ -60,11 +63,12 @@ public class MainActivity extends Activity {
         btnRefresh = (Button) findViewById(R.id.btnRefresh);
         btnCopyAll = (Button) findViewById(R.id.btnCopyAll);
         btnExport = (Button) findViewById(R.id.btnExport);
+        layoutGithub = (LinearLayout) findViewById(R.id.layoutGithub);
 
         adapter = new WifiAdapter();
         listView.setAdapter(adapter);
 
-        // Canlı Arama Filtresi
+        // Canlı Arama
         etSearch.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -97,6 +101,19 @@ public class MainActivity extends Activity {
             }
         });
 
+        // GitHub Alanına Tıklama
+        layoutGithub.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                try {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/erdemsoftware/wifi-sifre-gosterici"));
+                    startActivity(intent);
+                } catch (Exception e) {
+                    Toast.makeText(MainActivity.this, "Tarayıcı açılamadı", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
         loadWifiPasswords();
     }
 
@@ -118,52 +135,53 @@ public class MainActivity extends Activity {
     }
 
     private void loadWifiPasswords() {
-        tvStatus.setText("Root izni kontrol ediliyor...");
+        tvStatus.setText("Root (su) izni isteniyor, lütfen bekleyin...");
         new Thread(new Runnable() {
             @Override
             public void run() {
                 final Map<String, String> results = new LinkedHashMap<>();
-                boolean rootSuccess = false;
+                String debugMsg = "";
 
-                try {
-                    Process process = Runtime.getRuntime().exec("su");
-                    DataOutputStream os = new DataOutputStream(process.getOutputStream());
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                // 1. Doğrudan su -c ile komut çalıştırma (Magisk için en güvenli yol)
+                String cmd = "cat /data/misc/apexdata/com.android.wifi/WifiConfigStore.xml " +
+                             "/data/misc/wifi/WifiConfigStore.xml " +
+                             "/data/misc/wifi/wpa_supplicant.conf " +
+                             "/data/vendor/wifi/wpa/wpa_supplicant.conf " +
+                             "/data/wifi/bcm_supp.conf 2>/dev/null";
 
-                    os.writeBytes("cat /data/misc/apexdata/com.android.wifi/WifiConfigStore.xml /data/misc/wifi/WifiConfigStore.xml 2>/dev/null\\n");
-                    os.writeBytes("exit\\n");
-                    os.flush();
+                String content = executeSuCommand(cmd);
 
-                    StringBuilder sb = new StringBuilder();
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        sb.append(line).append("\\n");
+                // Eğer bilinen yollar boş geldiyse find ile sistemdeki tüm wifi configleri bulup oku
+                if (content.trim().isEmpty() || content.startsWith("ERROR:")) {
+                    String fallbackCmd = "find /data/misc /data/vendor -name '*WifiConfigStore*.xml' -o -name '*wpa_supplicant*.conf' 2>/dev/null -exec cat {} +";
+                    String fallbackContent = executeSuCommand(fallbackCmd);
+                    if (!fallbackContent.trim().isEmpty() && !fallbackContent.startsWith("ERROR:")) {
+                        content = fallbackContent;
                     }
-                    process.waitFor();
-
-                    String content = sb.toString();
-                    if (!content.trim().isEmpty()) {
-                        rootSuccess = true;
-                        parseWifiXml(content, results);
-                    }
-                } catch (Exception e) {
-                    rootSuccess = false;
                 }
 
-                final boolean finalRoot = rootSuccess;
+                if (content.startsWith("ERROR:")) {
+                    debugMsg = "❌ " + content;
+                } else if (content.trim().isEmpty()) {
+                    debugMsg = "❌ Root izni verildi ancak Wi-Fi yapılandırma dosyası boş veya bulunamadı.";
+                } else {
+                    parseWifiContent(content, results);
+                    if (results.isEmpty()) {
+                        debugMsg = "❌ Dosya okundu (" + content.length() + " karakter) ancak Wi-Fi şifresi çözülemedi.";
+                    } else {
+                        debugMsg = "✔ Başarıyla yüklendi (" + results.size() + " ağ).";
+                    }
+                }
+
+                final String finalStatus = debugMsg;
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         allWifiList.clear();
-                        if (!finalRoot || results.isEmpty()) {
-                            tvStatus.setText("❌ Root izni alınamadı veya kayıtlı ağ bulunamadı.");
-                            tvCount.setText("0 Ağ");
-                        } else {
-                            for (Map.Entry<String, String> entry : results.entrySet()) {
-                                allWifiList.add(new WifiItem(entry.getKey(), entry.getValue()));
-                            }
-                            tvStatus.setText("✔ Başarıyla yüklendi.");
+                        for (Map.Entry<String, String> entry : results.entrySet()) {
+                            allWifiList.add(new WifiItem(entry.getKey(), entry.getValue()));
                         }
+                        tvStatus.setText(finalStatus);
                         filterList(etSearch.getText().toString());
                     }
                 });
@@ -171,59 +189,119 @@ public class MainActivity extends Activity {
         }).start();
     }
 
-    private void parseWifiXml(String xml, Map<String, String> outMap) {
-        Pattern pattern = Pattern.compile("<Network>[\\s\\S]*?</Network>");
-        Matcher matcher = pattern.matcher(xml);
+    private String executeSuCommand(String command) {
+        StringBuilder output = new StringBuilder();
+        StringBuilder error = new StringBuilder();
+        try {
+            Process process = Runtime.getRuntime().exec(new String[]{"su", "-c", command});
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), "UTF-8"));
+            BufferedReader errReader = new BufferedReader(new InputStreamReader(process.getErrorStream(), "UTF-8"));
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                output.append(line).append("\n");
+            }
+            while ((line = errReader.readLine()) != null) {
+                error.append(line).append("\n");
+            }
+
+            int exitCode = process.waitFor();
+            if (exitCode != 0 && output.length() == 0) {
+                if (error.toString().toLowerCase().contains("denied") || error.toString().toLowerCase().contains("permission")) {
+                    return "ERROR: Magisk/Root izni reddedildi. Lütfen Magisk uygulamasından izin verin.";
+                }
+                return "ERROR: Root komutu başarısız oldu (Hata kodu: " + exitCode + "). " + error.toString().trim();
+            }
+            return output.toString();
+        } catch (Exception e) {
+            return "ERROR: su komutu çalıştırılamadı. Magisk yüklü mü? (" + e.getMessage() + ")";
+        }
+    }
+
+    private void parseWifiContent(String content, Map<String, String> outMap) {
+        // YÖNTEM 1: Android 9-14 WifiConfigStore.xml blokları (<Network> veya <WifiConfiguration>)
+        Pattern blockPattern = Pattern.compile("<(?:Network|WifiConfiguration)>([\\s\\S]*?)</(?:Network|WifiConfiguration)>", Pattern.CASE_INSENSITIVE);
+        Matcher matcher = blockPattern.matcher(content);
 
         Pattern ssidPat = Pattern.compile("<string name=\"SSID\">(.*?)</string>");
         Pattern pskPat = Pattern.compile("<string name=\"PreSharedKey\">(.*?)</string>");
 
         while (matcher.find()) {
-            String block = matcher.group();
+            String block = matcher.group(1);
             Matcher mSsid = ssidPat.matcher(block);
             Matcher mPsk = pskPat.matcher(block);
 
             if (mSsid.find()) {
-                String ssid = mSsid.group(1).trim();
-                if (ssid.startsWith("&quot;") && ssid.endsWith("&quot;")) {
-                    ssid = ssid.substring(6, ssid.length() - 6);
-                } else if (ssid.startsWith("\"") && ssid.endsWith("\"")) {
-                    ssid = ssid.substring(1, ssid.length() - 1);
-                }
-
-                String psk = "(Şifresiz)";
+                String ssid = cleanString(mSsid.group(1));
+                String psk = "(Şifresiz / Açık)";
                 if (mPsk.find()) {
-                    psk = mPsk.group(1).trim();
-                    if (psk.startsWith("&quot;") && psk.endsWith("&quot;")) {
-                        psk = psk.substring(6, psk.length() - 6);
-                    } else if (psk.startsWith("\"") && psk.endsWith("\"")) {
-                        psk = psk.substring(1, psk.length() - 1);
-                    }
+                    psk = cleanString(mPsk.group(1));
                 }
 
-                if (!ssid.isEmpty()) {
+                if (!ssid.isEmpty() && !outMap.containsKey(ssid)) {
                     outMap.put(ssid, psk);
                 }
             }
         }
 
-        // Eski Android biçimleri için fallback
-        if (outMap.isEmpty()) {
-            Pattern networkOld = Pattern.compile("network=\\{[\\s\\S]*?\\}");
-            Matcher mOld = networkOld.matcher(xml);
-            Pattern sPat = Pattern.compile("ssid=\"(.*?)\"");
-            Pattern pPat = Pattern.compile("psk=\"(.*?)\"");
-            while (mOld.find()) {
-                String blk = mOld.group();
-                Matcher ms = sPat.matcher(blk);
-                Matcher mp = pPat.matcher(blk);
-                if (ms.find()) {
-                    String s = ms.group(1);
-                    String p = mp.find() ? mp.group(1) : "(Şifresiz)";
-                    outMap.put(s, p);
+        // YÖNTEM 2: wpa_supplicant.conf blokları (network={...})
+        Pattern wpaBlockPat = Pattern.compile("network=\\{([\\s\\S]*?)\\}");
+        Matcher wpaMatcher = wpaBlockPat.matcher(content);
+        Pattern wpaSsidPat = Pattern.compile("ssid=[\"']?(.*?)[\"']?\\s*$", Pattern.MULTILINE);
+        Pattern wpaPskPat = Pattern.compile("psk=[\"']?(.*?)[\"']?\\s*$", Pattern.MULTILINE);
+
+        while (wpaMatcher.find()) {
+            String block = wpaMatcher.group(1);
+            Matcher ms = wpaSsidPat.matcher(block);
+            Matcher mp = wpaPskPat.matcher(block);
+
+            if (ms.find()) {
+                String ssid = cleanString(ms.group(1));
+                String psk = "(Şifresiz / Açık)";
+                if (mp.find()) {
+                    psk = cleanString(mp.group(1));
+                }
+                if (!ssid.isEmpty() && !outMap.containsKey(ssid)) {
+                    outMap.put(ssid, psk);
                 }
             }
         }
+
+        // YÖNTEM 3: Satır Bazlı Yedek Tarayıcı (Eğer özel ROM veya üretici XML yapısını değiştirdiyse)
+        if (outMap.isEmpty()) {
+            String[] lines = content.split("\n");
+            String currentSsid = null;
+            for (String line : lines) {
+                if (line.contains("name=\"SSID\">")) {
+                    Matcher m = ssidPat.matcher(line);
+                    if (m.find()) {
+                        currentSsid = cleanString(m.group(1));
+                    }
+                } else if (line.contains("name=\"PreSharedKey\">") && currentSsid != null) {
+                    Matcher m = pskPat.matcher(line);
+                    if (m.find()) {
+                        String psk = cleanString(m.group(1));
+                        outMap.put(currentSsid, psk);
+                        currentSsid = null;
+                    }
+                } else if (line.contains("<null name=\"PreSharedKey\"") && currentSsid != null) {
+                    outMap.put(currentSsid, "(Şifresiz / Açık)");
+                    currentSsid = null;
+                }
+            }
+        }
+    }
+
+    private String cleanString(String str) {
+        if (str == null) return "";
+        str = str.trim();
+        if (str.startsWith("&quot;") && str.endsWith("&quot;")) {
+            str = str.substring(6, str.length() - 6);
+        }
+        if (str.startsWith("\"") && str.endsWith("\"")) {
+            str = str.substring(1, str.length() - 1);
+        }
+        return str.trim();
     }
 
     private void copyToClipboard(String text, String label) {
@@ -240,7 +318,7 @@ public class MainActivity extends Activity {
         }
         StringBuilder sb = new StringBuilder();
         for (WifiItem item : allWifiList) {
-            sb.append("SSID: ").append(item.ssid).append(" | Şifre: ").append(item.password).append("\\n");
+            sb.append("Ağ: ").append(item.ssid).append(" | Şifre: ").append(item.password).append("\n");
         }
         copyToClipboard(sb.toString().trim(), "Tüm Wi-Fi Şifreleri");
     }
@@ -255,34 +333,22 @@ public class MainActivity extends Activity {
             @Override
             public void run() {
                 final String targetPath = "/sdcard/Download/wifi_sifreleri.txt";
-                boolean success = false;
-                try {
-                    StringBuilder sb = new StringBuilder();
-                    sb.append("=== KAYITLI WI-FI ŞİFRELERİ ===\\n\\n");
-                    for (WifiItem item : allWifiList) {
-                        sb.append("Ağ Adı (SSID) : ").append(item.ssid).append("\\n");
-                        sb.append("Şifre         : ").append(item.password).append("\\n");
-                        sb.append("----------------------------------------\\n");
-                    }
-
-                    Process p = Runtime.getRuntime().exec("su");
-                    DataOutputStream os = new DataOutputStream(p.getOutputStream());
-                    // Base64 veya doğrudan echo ile yaz
-                    String content = sb.toString().replace("'", "'\\\\''");
-                    os.writeBytes("echo '" + content + "' > " + targetPath + "\\n");
-                    os.writeBytes("exit\\n");
-                    os.flush();
-                    p.waitFor();
-                    success = true;
-                } catch (Exception e) {
-                    success = false;
+                StringBuilder sb = new StringBuilder();
+                sb.append("=== KAYITLI WI-FI ŞİFRELERİ ===\n\n");
+                for (WifiItem item : allWifiList) {
+                    sb.append("Ağ Adı (SSID) : ").append(item.ssid).append("\n");
+                    sb.append("Şifre         : ").append(item.password).append("\n");
+                    sb.append("----------------------------------------\n");
                 }
 
-                final boolean finalSuccess = success;
+                String cmd = "echo '" + sb.toString().replace("'", "'\\''") + "' > " + targetPath;
+                String res = executeSuCommand(cmd);
+                final boolean success = !res.startsWith("ERROR:");
+
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        if (finalSuccess) {
+                        if (success) {
                             Toast.makeText(MainActivity.this, "Kaydedildi: İndirilenler/wifi_sifreleri.txt 📁", Toast.LENGTH_LONG).show();
                         } else {
                             Toast.makeText(MainActivity.this, "Dosya kaydedilemedi!", Toast.LENGTH_SHORT).show();

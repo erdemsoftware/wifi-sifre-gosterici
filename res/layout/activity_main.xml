@@ -6,7 +6,7 @@
     android:background="#F0F2F5"
     android:padding="16dp">
 
-    <!-- Başlık ve Durum -->
+    <!-- Üst Başlık ve Ağ Sayacı -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -29,6 +29,7 @@
             android:layout_height="wrap_content"
             android:text="0 Ağ"
             android:textSize="13sp"
+            android:textStyle="bold"
             android:textColor="#1565C0"
             android:background="#E3F2FD"
             android:paddingLeft="10dp"
@@ -57,7 +58,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginBottom="12dp">
+        android:layout_marginBottom="10dp">
 
         <Button
             android:id="@+id/btnRefresh"
@@ -92,19 +93,20 @@
             android:layout_width="0dp"
             android:layout_height="40dp"
             android:layout_weight="1.2"
-            android:text="Dosyaya Aktar"
+            android:text="Dışa Aktar"
             android:textSize="13sp"
             android:backgroundTint="#E65100"
             android:textColor="#FFFFFF" />
     </LinearLayout>
 
+    <!-- Durum ve Hata Metni -->
     <TextView
         android:id="@+id/tvStatus"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Root izni kontrol ediliyor..."
-        android:textSize="13sp"
-        android:textColor="#666666"
+        android:textSize="12sp"
+        android:textColor="#555555"
         android:layout_marginBottom="8dp" />
 
     <!-- Ağ Listesi -->
@@ -115,4 +117,27 @@
         android:layout_weight="1"
         android:divider="@null"
         android:dividerHeight="10dp" />
+
+    <!-- Alt Kısım: GitHub Alanı -->
+    <LinearLayout
+        android:id="@+id/layoutGithub"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:background="#E0E0E0"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:layout_marginTop="8dp"
+        android:clickable="true"
+        android:focusable="true">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⭐ GitHub: erdemsoftware/wifi-sifre-gosterici ↗"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:textColor="#212121" />
+    </LinearLayout>
 </LinearLayout>
