@@ -4,7 +4,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#F0F2F5"
-    android:padding="16dp">
+    android:padding="14dp">
 
     <!-- Üst Başlık ve Ağ Sayacı -->
     <LinearLayout
@@ -12,14 +12,14 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="12dp">
+        android:layout_marginBottom="10dp">
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="📶 WiFi Şifreleri"
-            android:textSize="22sp"
+            android:text="📶 WiFi Yöneticisi"
+            android:textSize="20sp"
             android:textStyle="bold"
             android:textColor="#1565C0" />
 
@@ -28,12 +28,12 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="0 Ağ"
-            android:textSize="13sp"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:textColor="#1565C0"
             android:background="#E3F2FD"
-            android:paddingLeft="10dp"
-            android:paddingRight="10dp"
+            android:paddingLeft="8dp"
+            android:paddingRight="8dp"
             android:paddingTop="4dp"
             android:paddingBottom="4dp" />
     </LinearLayout>
@@ -42,31 +42,31 @@
     <EditText
         android:id="@+id/etSearch"
         android:layout_width="match_parent"
-        android:layout_height="44dp"
+        android:layout_height="42dp"
         android:hint="🔍 Wi-Fi adı veya şifre ara..."
         android:background="@drawable/search_bg"
-        android:paddingLeft="14dp"
-        android:paddingRight="14dp"
-        android:textSize="14sp"
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp"
+        android:textSize="13sp"
         android:textColor="#212121"
         android:textColorHint="#888888"
         android:singleLine="true"
-        android:layout_marginBottom="12dp" />
+        android:layout_marginBottom="8dp" />
 
-    <!-- Hızlı Eylem Butonları -->
+    <!-- 1. Buton Satırı: Genel İşlemler -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginBottom="10dp">
+        android:layout_marginBottom="6dp">
 
         <Button
             android:id="@+id/btnRefresh"
             android:layout_width="0dp"
-            android:layout_height="40dp"
+            android:layout_height="38dp"
             android:layout_weight="1"
             android:text="Yenile"
-            android:textSize="13sp"
+            android:textSize="12sp"
             android:backgroundTint="#1976D2"
             android:textColor="#FFFFFF" />
 
@@ -77,10 +77,10 @@
         <Button
             android:id="@+id/btnCopyAll"
             android:layout_width="0dp"
-            android:layout_height="40dp"
+            android:layout_height="38dp"
             android:layout_weight="1.2"
             android:text="Hepsini Kopyala"
-            android:textSize="13sp"
+            android:textSize="12sp"
             android:backgroundTint="#2E7D32"
             android:textColor="#FFFFFF" />
 
@@ -91,23 +91,72 @@
         <Button
             android:id="@+id/btnExport"
             android:layout_width="0dp"
-            android:layout_height="40dp"
-            android:layout_weight="1.2"
+            android:layout_height="38dp"
+            android:layout_weight="1"
             android:text="Dışa Aktar"
-            android:textSize="13sp"
+            android:textSize="12sp"
             android:backgroundTint="#E65100"
             android:textColor="#FFFFFF" />
     </LinearLayout>
 
-    <!-- Durum ve Hata Metni -->
-    <TextView
-        android:id="@+id/tvStatus"
+    <!-- 2. Buton Satırı: Silme ve Temizleme Araçları -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Root izni kontrol ediliyor..."
-        android:textSize="12sp"
-        android:textColor="#555555"
-        android:layout_marginBottom="8dp" />
+        android:orientation="horizontal"
+        android:layout_marginBottom="8dp">
+
+        <Button
+            android:id="@+id/btnDeleteSelected"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_weight="1"
+            android:text="🗑️ Seçilenleri Sil"
+            android:textSize="12sp"
+            android:backgroundTint="#D32F2F"
+            android:textColor="#FFFFFF" />
+
+        <Space
+            android:layout_width="6dp"
+            android:layout_height="wrap_content" />
+
+        <Button
+            android:id="@+id/btnClearOpen"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_weight="1.3"
+            android:text="🧹 Şifresizleri Temizle"
+            android:textSize="12sp"
+            android:backgroundTint="#C2185B"
+            android:textColor="#FFFFFF" />
+    </LinearLayout>
+
+    <!-- Çoklu Seçim Barı ve Durum -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="6dp">
+
+        <CheckBox
+            android:id="@+id/cbSelectAll"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tümünü Seç"
+            android:textSize="12sp"
+            android:textColor="#37474F" />
+
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="right"
+            android:text="Root izni kontrol ediliyor..."
+            android:textSize="11sp"
+            android:textColor="#555555" />
+    </LinearLayout>
 
     <!-- Ağ Listesi -->
     <ListView
@@ -116,7 +165,7 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:divider="@null"
-        android:dividerHeight="10dp" />
+        android:dividerHeight="8dp" />
 
     <!-- Alt Kısım: GitHub Alanı -->
     <LinearLayout
@@ -126,9 +175,9 @@
         android:orientation="horizontal"
         android:gravity="center"
         android:background="#E0E0E0"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp"
-        android:layout_marginTop="8dp"
+        android:paddingTop="7dp"
+        android:paddingBottom="7dp"
+        android:layout_marginTop="6dp"
         android:clickable="true"
         android:focusable="true">
 
@@ -136,7 +185,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="⭐ GitHub: erdemsoftware/wifi-sifre-gosterici ↗"
-            android:textSize="13sp"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:textColor="#212121" />
     </LinearLayout>
